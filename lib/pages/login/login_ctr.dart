@@ -1,7 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:pharmacie_flutter/domaine/login/models/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:pharmacie_flutter/domaine/login/models/user_model.dart';
 import 'package:pharmacie_flutter/domaine/services/auth_service.dart';
 import 'package:pharmacie_flutter/pages/login/login_state.dart';
 
@@ -12,41 +14,75 @@ class AuthPharmacienCtrl extends ChangeNotifier {
   static const String _keyUserData = 'user_session_data';
 
   AuthState _state = AuthState();
+
   AuthState get state => _state;
+
+  /// ===========================
+  /// Getters
+  /// ===========================
+
+  AuthResponseDto? get auth => _state.data;
+
+  User? get user => _state.data?.user;
+
+  Pharmacien? get pharmacien => _state.data?.pharmacien;
+
+  bool get isLoggedIn =>
+      _state.status == AuthStatus.success && _state.data != null;
+
+  String get fullName {
+    if (_state.data?.pharmacien != null) {
+      return "${_state.data!.pharmacien!.firstName} ${_state.data!.pharmacien!.name}";
+    }
+
+    return _state.data?.user.name ?? "";
+  }
+
+  /// ===========================
+  /// Vérifie la session locale
+  /// ===========================
 
   Future<bool> checkAutoLogin() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString(_keyToken);
-      final String? jsonString = prefs.getString(_keyUserData);
+
+      final token = prefs.getString(_keyToken);
+      final jsonString = prefs.getString(_keyUserData);
 
       if (token != null && jsonString != null) {
-        final Map<String, dynamic> decodedJson = jsonDecode(jsonString);
+        final decodedJson = jsonDecode(jsonString);
+
         final authData = AuthResponseDto.fromJson(decodedJson);
 
         _state = _state.copyWith(status: AuthStatus.success, data: authData);
+
         notifyListeners();
+
         return true;
       }
     } catch (e) {
-      debugPrint('Erreur lors de la récupération de la session locale : $e');
+      debugPrint("Erreur Auto Login : $e");
     }
+
     return false;
   }
 
+  /// ===========================
+  /// Connexion
+  /// ===========================
+
   Future<void> login(String name, String phoneNumber) async {
-    // 1. On passe en mode chargement
     _state = _state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
     notifyListeners();
 
     try {
-      // 2. Appel au service API
       final responseDto = await _authService.loginPharmacien(name, phoneNumber);
 
-      // 3. Sauvegarde locale dans les SharedPreferences
       final prefs = await SharedPreferences.getInstance();
+
       await prefs.setString(_keyToken, responseDto.token);
-      // On encode l'objet en JSON string pour le stocker textuellement
+
       await prefs.setString(
         _keyUserData,
         jsonEncode({
@@ -71,31 +107,39 @@ class AuthPharmacienCtrl extends ChangeNotifier {
         }),
       );
 
-      // 4. Succès ! On stocke les données dans l'état de l'application
       _state = _state.copyWith(status: AuthStatus.success, data: responseDto);
     } catch (e) {
-      // 5. Gestion de l'erreur
       _state = _state.copyWith(
         status: AuthStatus.error,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: e.toString().replaceAll("Exception: ", ""),
       );
-    } finally {
-      notifyListeners();
     }
+
+    notifyListeners();
   }
 
-  /// Déconnexion de l'utilisateur et nettoyage local
+  /// ===========================
+  /// Déconnexion
+  /// ===========================
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.remove(_keyToken);
     await prefs.remove(_keyUserData);
 
     _state = AuthState();
+
     notifyListeners();
   }
 
+  /// ===========================
+  /// Réinitialiser l'état
+  /// ===========================
+
   void resetState() {
     _state = AuthState();
+
     notifyListeners();
   }
 }

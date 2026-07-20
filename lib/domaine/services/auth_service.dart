@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:pharmacie_flutter/domaine/login/models/user_model.dart';
-// Importez vos models ici
+
 
 class AuthService {
-  // Remplacez par l'URL de votre API (ex: http://10.0.2.2:8000/api pour l'émulateur Android)
-  static const String baseUrl = 'http://10.0.2.2:8000/api/auth';
+  static const String baseUrl = 'http://10.252.252.45:8000/api/auth';
 
   Future<AuthResponseDto> loginPharmacien(
     String name,
